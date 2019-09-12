@@ -10,5 +10,6 @@ def preprocess(fn, output_fn):
 
 
 if __name__ == '__main__':
-    preprocess('data/raw/train.txt', 'data/preprocessed/train.txt')
-    preprocess('data/raw/test.txt', 'data/preprocessed/test.txt')
+    # preprocess('data/raw/train.txt', 'data/preprocessed/train.txt')
+    # preprocess('data/raw/test.txt', 'data/preprocessed/test.txt')
+    preprocess('data/raw/dev.txt', 'data/data/dev.txt')
