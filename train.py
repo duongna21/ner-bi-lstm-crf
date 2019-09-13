@@ -13,8 +13,8 @@ import evaluator
 from sentence import Sentence
 
 
-def train(model, optimizer, train_dl, dev_dl, test_dl, epochs, all_losses, eval_losses, save_every, save_dir):
-    for epoch in range(1, epochs + 1):
+def train(model, optimizer, train_dl, dev_dl, test_dl, epochs, start_epoch, all_losses, eval_losses, save_every, save_dir):
+    for epoch in range(start_epoch, epochs + 1):
         model.train()
         current_loss = 0
         for ((batch_sentence_word_indexes,
@@ -40,6 +40,7 @@ def train(model, optimizer, train_dl, dev_dl, test_dl, epochs, all_losses, eval_
         test_precision, test_recall, test_f1_score = evaluator.evaluate_test(model, test_dl)
         dev_precision, dev_recall, dev_f1_score = evaluator.evaluate_test(model, dev_dl)
         print('-----------------------------------------------')
+
         print(f"Epoch {epoch}: \tloss = {epoch_loss}"
               f"\neval_loss = {eval_losses[-1]}"
               f"\ntest_precision = {test_precision}"
@@ -48,9 +49,10 @@ def train(model, optimizer, train_dl, dev_dl, test_dl, epochs, all_losses, eval_
               f"\ndev_precision = {dev_precision}"
               f"\ndev_recall = {dev_recall}"
               f"\ndev_f1_score = {dev_f1_score}")
+        print('-----------------------------------------------')
 
         if epoch % save_every == 0:
-            directory = os.path.join(save_dir, f'{character_hidden_dim}_{context_hidden_dim}')
+            directory = os.path.join(save_dir, f'{character_hidden_dim}_{context_hidden_dim}_{crf_loss_reduction}')
             if not os.path.exists(directory):
                 os.makedirs(directory)
 
@@ -142,7 +144,7 @@ if __name__ == '__main__':
     epochs = 30
     crf_loss_reduction = 'sum'
 
-    model_fn = None
+    model_fn = 'data/model/100_150_sum/5_checkpoint.tar'
 
     model, optimizer, epoch, all_losses, eval_losses = load_model(model_fn,
                                                                   voc,
@@ -155,5 +157,5 @@ if __name__ == '__main__':
                                                                   weight_decay)
 
     print('Training...')
-    train(model, optimizer, train_dl, dev_dl, test_dl, epochs, all_losses, eval_losses, save_every=1,
+    train(model, optimizer, train_dl, dev_dl, test_dl, epochs, epoch, all_losses, eval_losses, save_every=1,
           save_dir='data/model')
