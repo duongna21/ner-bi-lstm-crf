@@ -38,12 +38,16 @@ def train(model, optimizer, train_dl, dev_dl, test_dl, epochs, all_losses, eval_
         all_losses.append(epoch_loss)
         eval_losses.append(evaluator.evaluate_loss(model, dev_dl))
         test_precision, test_recall, test_f1_score = evaluator.evaluate_test(model, test_dl)
+        dev_precision, dev_recall, dev_f1_score = evaluator.evaluate_test(model, dev_dl)
         print('-----------------------------------------------')
         print(f"Epoch {epoch}: \tloss = {epoch_loss}"
               f"\neval_loss = {eval_losses[-1]}"
               f"\ntest_precision = {test_precision}"
               f"\ntest_recall = {test_recall}"
-              f"\ntest_f1_score = {test_f1_score}")
+              f"\ntest_f1_score = {test_f1_score}"
+              f"\ndev_precision = {dev_precision}"
+              f"\ndev_recall = {dev_recall}"
+              f"\ndev_f1_score = {dev_f1_score}")
 
         if epoch % save_every == 0:
             directory = os.path.join(save_dir, f'{character_hidden_dim}_{context_hidden_dim}')
@@ -68,7 +72,7 @@ def is_stopping(eval_losses):
 
 
 def load_model(model_fn, voc, character_embedding_dim, character_hidden_dim, context_hidden_dim, dropout,
-               crf_loss_reduction):
+               crf_loss_reduction, learning_rate, weight_decay):
     print('Building model and optimizer...')
     epoch = 0
     all_losses = []
@@ -81,7 +85,7 @@ def load_model(model_fn, voc, character_embedding_dim, character_hidden_dim, con
                       dropout=dropout,
                       crf_loss_reduction=crf_loss_reduction)
 
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
+    optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=weight_decay)
 
     if model_fn is not None:
         checkpoint = torch.load(model_fn)
@@ -133,7 +137,7 @@ if __name__ == '__main__':
     character_hidden_dim = 100
     context_hidden_dim = 150
     learning_rate = 0.0035
-    weight_decay = 0.05
+    weight_decay = 0.5
     dropout = 0.35
     epochs = 30
     crf_loss_reduction = 'sum'
@@ -146,7 +150,9 @@ if __name__ == '__main__':
                                                                   character_hidden_dim,
                                                                   context_hidden_dim,
                                                                   dropout,
-                                                                  crf_loss_reduction)
+                                                                  crf_loss_reduction,
+                                                                  learning_rate,
+                                                                  weight_decay)
 
     print('Training...')
     train(model, optimizer, train_dl, dev_dl, test_dl, epochs, all_losses, eval_losses, save_every=1,
