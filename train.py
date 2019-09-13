@@ -31,13 +31,15 @@ def train(model, optimizer, train_dl, dev_dl, test_dl, epochs, start_epoch, all_
               batch_sentence_chunk_indexes,
               batch_sentence_word_character_indexes),
              batch_sentence_tag_indexes,
-             lengths) in tqdm(train_dl):
+             batch_sentence_lengths,
+             batch_word_lengths) in tqdm(train_dl):
             optimizer.zero_grad()
             loss = - model(batch_sentence_word_indexes,
                            batch_sentence_pos_indexes,
                            batch_sentence_chunk_indexes,
                            batch_sentence_word_character_indexes,
-                           lengths,
+                           batch_sentence_lengths,
+                           batch_word_lengths,
                            batch_sentence_tag_indexes)
             loss.backward()
             optimizer.step()
@@ -90,7 +92,7 @@ def load_model(model_fn, voc, character_embedding_dim, character_hidden_dim, con
                       dropout=dropout,
                       crf_loss_reduction=crf_loss_reduction)
 
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum, nesterov=True)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
     if model_fn is not None:
         checkpoint = torch.load(model_fn)
@@ -125,13 +127,18 @@ if __name__ == '__main__':
     train_ds = dataset.Dataset(train_sentences, word_padding_idx=voc.padding_index,
                                pos_padding_idx=const.POS_PADDING_IDX,
                                chunk_padding_idx=const.CHUNK_PADDING_IDX,
+                               character_padding_idx=const.CHARACTER2INDEX['<PAD>'],
                                tag_padding_idx=const.CHUNK_PADDING_IDX)
     dev_ds = dataset.Dataset(dev_sentences, word_padding_idx=voc.padding_index,
                              pos_padding_idx=const.POS_PADDING_IDX,
-                             chunk_padding_idx=const.CHUNK_PADDING_IDX, tag_padding_idx=const.CHUNK_PADDING_IDX)
+                             chunk_padding_idx=const.CHUNK_PADDING_IDX,
+                             character_padding_idx=const.CHARACTER2INDEX['<PAD>'],
+                             tag_padding_idx=const.CHUNK_PADDING_IDX)
     test_ds = dataset.Dataset(test_sentences, word_padding_idx=voc.padding_index,
                               pos_padding_idx=const.POS_PADDING_IDX,
-                              chunk_padding_idx=const.CHUNK_PADDING_IDX, tag_padding_idx=const.CHUNK_PADDING_IDX)
+                              chunk_padding_idx=const.CHUNK_PADDING_IDX,
+                              character_padding_idx=const.CHARACTER2INDEX['<PAD>'],
+                              tag_padding_idx=const.CHUNK_PADDING_IDX)
 
     train_dl = dataset.DataLoader(train_ds, batch_size=batch_size)
     dev_dl = dataset.DataLoader(dev_ds, batch_size=batch_size)

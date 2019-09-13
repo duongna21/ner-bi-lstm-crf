@@ -37,9 +37,10 @@ class BiLSTMCrf(nn.Module):
                 batch_padded_pos_seq,
                 batch_padded_chunk_seq,
                 batch_character_indexes_seq,
-                lengths,
+                batch_sentence_lengths,
+                batch_word_lengths,
                 batch_padded_tags=None):
-        padded_length = lengths.max().item()
+        padded_sentence_length = batch_sentence_lengths.max().item()
         # Mask padding position
         mask = (batch_padded_seq != self.vocab.padding_index).type(torch.uint8)
 
@@ -48,7 +49,10 @@ class BiLSTMCrf(nn.Module):
         # word_embs = self.dropout(word_embs)
 
         # Character level presentation
-        padded_batch_character_seq = self.character_lstm(batch_character_indexes_seq, padded_length)
+        padded_batch_character_seq = self.character_lstm(batch_character_indexes_seq,
+                                                         batch_word_lengths,
+                                                         batch_sentence_lengths,
+                                                         padded_sentence_length)
         # padded_batch_character_seq = self.dropout(padded_batch_character_seq)
 
         # Pos embeddings
@@ -61,7 +65,7 @@ class BiLSTMCrf(nn.Module):
         combined = torch.cat([word_embs, padded_batch_character_seq, pos_embs, chunk_embs], dim=2)
         combined = self.dropout(combined)
 
-        packed = nn.utils.rnn.pack_padded_sequence(combined, lengths=lengths, enforce_sorted=False)
+        packed = nn.utils.rnn.pack_padded_sequence(combined, lengths=batch_sentence_lengths, enforce_sorted=False)
 
         # Context outputs
         context_outputs, _ = self.context_lstm(packed)

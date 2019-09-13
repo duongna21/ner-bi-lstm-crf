@@ -1,15 +1,23 @@
 import torch
+import itertools
 
 import utils
 import const
 
 
 class Dataset:
-    def __init__(self, sentences, word_padding_idx, pos_padding_idx, chunk_padding_idx, tag_padding_idx):
+    def __init__(self,
+                 sentences,
+                 word_padding_idx,
+                 pos_padding_idx,
+                 chunk_padding_idx,
+                 character_padding_idx,
+                 tag_padding_idx):
         self.sentences = sentences
         self.word_padding_idx = word_padding_idx
         self.pos_padding_idx = pos_padding_idx
         self.chunk_padding_idx = chunk_padding_idx
+        self.character_padding_idx = character_padding_idx
         self.tag_padding_idx = tag_padding_idx
 
     def __len__(self):
@@ -31,10 +39,16 @@ class DataLoader:
                                                self.dataset.word_padding_idx,
                                                self.dataset.pos_padding_idx,
                                                self.dataset.chunk_padding_idx,
+                                               self.dataset.character_padding_idx,
                                                self.dataset.tag_padding_idx))
 
     @staticmethod
-    def get_batch(sentences, word_padding_idx, pos_padding_idx, chunk_padding_idx, tag_padding_idx):
+    def get_batch(sentences,
+                  word_padding_idx,
+                  pos_padding_idx,
+                  chunk_padding_idx,
+                  character_padding_idx,
+                  tag_padding_idx):
         batch_sentence_word_indexes = utils.zero_padding([sentence.word_indexes for sentence in sentences],
                                                          fill_value=word_padding_idx)
         batch_sentence_pos_indexes = utils.zero_padding([sentence.pos_indexes for sentence in sentences],
@@ -43,17 +57,20 @@ class DataLoader:
                                                           fill_value=chunk_padding_idx)
         batch_sentence_tag_indexes = utils.zero_padding([sentence.tag_indexes for sentence in sentences],
                                                         fill_value=tag_padding_idx)
-        batch_sentence_word_character_indexes = [
-            (sentence.padded_character_indexes_tensor, sentence.word_lengths_tensor) for
-            sentence in sentences]
         batch_lengths = [sentence.length for sentence in sentences]
+        batch_sentence_word_character_indexes = utils.zero_padding(itertools.chain.from_iterable(
+            [sentence.character_indexes for sentence in sentences]
+        ), fill_value=character_padding_idx)
+        batch_word_lengths = [len(characters) for sentence in sentences for characters in sentence.character_indexes]
+
         return ((torch.tensor(batch_sentence_word_indexes, dtype=torch.long, device=const.DEVICE),
                 torch.tensor(batch_sentence_pos_indexes, dtype=torch.long, device=const.DEVICE),
                 torch.tensor(batch_sentence_chunk_indexes, dtype=torch.long, device=const.DEVICE),
-                batch_sentence_word_character_indexes
+                torch.tensor(batch_sentence_word_character_indexes, dtype=torch.long, device=const.DEVICE)
                  ),
                 torch.tensor(batch_sentence_tag_indexes, dtype=torch.long, device=const.DEVICE),
-                torch.tensor(batch_lengths, dtype=torch.long, device=const.DEVICE))
+                torch.tensor(batch_lengths, dtype=torch.long, device=const.DEVICE),
+                torch.tensor(batch_word_lengths, dtype=torch.long, device=const.DEVICE))
 
     def __iter__(self):
         batches = iter(self.batches)

@@ -13,12 +13,14 @@ def evaluate_loss(model, dev_dl):
              batch_sentence_chunk_indexes,
              batch_sentence_word_character_indexes),
              batch_sentence_tag_indexes,
-             lengths) in dev_dl:
+             batch_sentence_lengths,
+             batch_word_lengths) in dev_dl:
             loss = - model(batch_sentence_word_indexes,
                            batch_sentence_pos_indexes,
                            batch_sentence_chunk_indexes,
                            batch_sentence_word_character_indexes,
-                           lengths,
+                           batch_sentence_lengths,
+                           batch_word_lengths,
                            batch_sentence_tag_indexes)
             current_loss += loss.item()
 
@@ -36,15 +38,17 @@ def evaluate_test(model, test_dl):
              batch_sentence_chunk_indexes,
              batch_sentence_word_character_indexes),
              batch_sentence_tag_indexes,
-             lengths) in test_dl:
+             batch_sentence_lengths,
+             batch_word_lengths) in test_dl:
             pred_seqs = model(batch_sentence_word_indexes,
                               batch_sentence_pos_indexes,
                               batch_sentence_chunk_indexes,
                               batch_sentence_word_character_indexes,
-                              lengths,
+                              batch_sentence_lengths,
+                              batch_word_lengths,
                               None)
 
-            for i, (pred_seq, length) in enumerate(zip(pred_seqs, lengths.tolist())):
+            for i, (pred_seq, length) in enumerate(zip(pred_seqs, batch_sentence_lengths.tolist())):
                 label_true.extend(batch_sentence_tag_indexes[:length, i].tolist())
                 label_pred.extend(pred_seq)
 
