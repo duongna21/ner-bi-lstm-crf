@@ -2,6 +2,7 @@ import torch
 import torch.optim as optim
 import os
 from tqdm import tqdm
+from torch.optim.lr_scheduler import StepLR
 
 import utils
 import vocab
@@ -13,8 +14,16 @@ import evaluator
 from sentence import Sentence
 
 
-def train(model, optimizer, train_dl, dev_dl, test_dl, epochs, start_epoch, all_losses, eval_losses, save_every, save_dir):
+def adjust_learning_rate(optimizer, learning_rate, epoch, learning_rate_decay):
+    lr = learning_rate / (1 + learning_rate_decay * (epoch - 1))
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+
+
+def train(model, optimizer, train_dl, dev_dl, test_dl, epochs, start_epoch, all_losses, eval_losses, save_every,
+          save_dir):
     for epoch in range(start_epoch, epochs + 1):
+        adjust_learning_rate(optimizer, learning_rate, epoch, learning_rate_decay)
         model.train()
         current_loss = 0
         for ((batch_sentence_word_indexes,
@@ -81,7 +90,7 @@ def load_model(model_fn, voc, character_embedding_dim, character_hidden_dim, con
                       dropout=dropout,
                       crf_loss_reduction=crf_loss_reduction)
 
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
+    optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum, nesterov=True)
 
     if model_fn is not None:
         checkpoint = torch.load(model_fn)
@@ -133,12 +142,14 @@ if __name__ == '__main__':
     character_hidden_dim = 100
     context_hidden_dim = 150
     learning_rate = 0.0035
-    weight_decay = 0.05
+    learning_rate_decay = 0.05
+    momentum = 0.9
     dropout = 0.35
     epochs = 30
     crf_loss_reduction = 'sum'
 
-    model_fn = 'data/model/100_150_sum/5_checkpoint.tar'
+    # model_fn = 'data/model/100_150_sum/5_checkpoint.tar'
+    model_fn = None
 
     model, optimizer, epoch, all_losses, eval_losses = load_model(model_fn,
                                                                   voc,
