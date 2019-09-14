@@ -1,11 +1,12 @@
 import torch
+from torch.utils.data import Dataset as TorchDataset
 import itertools
 
 import utils
 import const
 
 
-class Dataset:
+class TempDataset:
     def __init__(self,
                  sentences,
                  word_padding_idx,
@@ -24,7 +25,7 @@ class Dataset:
         return len(self.sentences)
 
 
-class DataLoader:
+class Dataset(TorchDataset):
     def __init__(self, dataset, batch_size):
         self.dataset = dataset
         self.batch_size = batch_size
@@ -79,3 +80,6 @@ class DataLoader:
 
     def __len__(self):
         return self.num_batches
+
+    def __getitem__(self, index):
+        return self.batches[index]

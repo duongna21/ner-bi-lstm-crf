@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-import torchtext
 from fasttext import FastText
+import math
 
 
 class Vocab:
@@ -14,8 +14,11 @@ class Vocab:
         self.unk_index = len(self.words)
         self.padding_index = len(self.words) + 1
         self.embeddings = nn.Embedding.from_pretrained(torch.cat([torch.tensor(self.model.get_input_matrix()),
-                                                                  torch.zeros(2, self.embedding_dim,
-                                                                              dtype=torch.float)]),
+                                                                  torch.rand(1, self.embedding_dim,
+                                                                             dtype=torch.float).uniform_(
+                                                                      - math.sqrt(3 / self.embedding_dim),
+                                                                      math.sqrt(3 / self.embedding_dim)),
+                                                                  torch.zeros(1, self.embedding_dim, dtype=torch.float)]),
                                                        padding_idx=self.padding_index,
                                                        freeze=True)
 
@@ -24,4 +27,3 @@ class Vocab:
 
     def word_to_index(self, word):
         return self.word2index.get(word, self.unk_index)
-
