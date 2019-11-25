@@ -5,7 +5,7 @@ import math
 
 
 class Vocab:
-    def __init__(self, path):
+    def __init__(self, path, freeze=False):
         self.model = FastText.load_model(path)
 
         self.embedding_dim = self.model.get_dimension()
@@ -20,7 +20,7 @@ class Vocab:
                                                                       math.sqrt(3 / self.embedding_dim)),
                                                                   torch.zeros(1, self.embedding_dim, dtype=torch.float)]),
                                                        padding_idx=self.padding_index,
-                                                       freeze=True)
+                                                       freeze=freeze)
 
     def get_embedding(self):
         return self.embeddings

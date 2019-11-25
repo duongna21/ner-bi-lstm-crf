@@ -145,7 +145,7 @@ def load_model(model_fn, voc, character_embedding_dim, character_hidden_dim, con
 
 if __name__ == '__main__':
     print('Loading vocab...')
-    voc = vocab.Vocab('data/pretrained_embedding/wiki.vi.bin')
+    voc = vocab.Vocab('data/pretrained_embedding/wiki.vi.bin', freeze=True)
     batch_size = 8
 
     print('Loading data ...')
