@@ -1,0 +1,4 @@
+fasttext
+pytorch-crf
+gensim
+pytorch
