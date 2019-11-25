@@ -26,9 +26,10 @@ class BiLSTMCrf(nn.Module):
         self.pos_embeddings = self.init_pos_embedding()
         self.chunk_embeddings = self.init_chunk_embedding()
         self.character_lstm = CharacterLSTM(character_embedding_dim, character_hidden_dim)
-        self.context_lstm = nn.LSTM(self.embedding_dim + character_hidden_dim + const.NUM_POS_TAGS + const.NUM_CHUNK_TAGS,
-                                    context_hidden_dim // 2,
-                                    bidirectional=True)
+        self.context_lstm = nn.LSTM(
+            self.embedding_dim + character_hidden_dim + const.NUM_POS_TAGS + const.NUM_CHUNK_TAGS,
+            context_hidden_dim // 2,
+            bidirectional=True)
         self.hidden2tag = nn.Linear(self.context_hidden_dim, self.num_tags)
         self.dropout = nn.Dropout(dropout)
         self.crf = CRF(num_tags=self.num_tags)
@@ -46,14 +47,12 @@ class BiLSTMCrf(nn.Module):
 
         # Word embeddings
         word_embs = self.embeddings(batch_padded_seq)
-        # word_embs = self.dropout(word_embs)
 
         # Character level presentation
         padded_batch_character_seq = self.character_lstm(batch_character_indexes_seq,
                                                          batch_word_lengths,
                                                          batch_sentence_lengths,
                                                          padded_sentence_length)
-        # padded_batch_character_seq = self.dropout(padded_batch_character_seq)
 
         # Pos embeddings
         pos_embs = self.pos_embeddings(batch_padded_pos_seq)
@@ -69,6 +68,7 @@ class BiLSTMCrf(nn.Module):
 
         # Context outputs
         context_outputs, _ = self.context_lstm(packed)
+        # self.dropout(context_outputs[0])
         context_outputs, _ = nn.utils.rnn.pad_packed_sequence(context_outputs)
 
         # Dropout

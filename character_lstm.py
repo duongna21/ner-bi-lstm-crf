@@ -56,12 +56,8 @@ class CharacterLSTM(nn.Module):
         # Padded packed outputs
         outputs, lengths = nn.utils.rnn.pad_packed_sequence(outputs)
 
+        # lengths = ((lengths - 1) >= 0).type(torch.long) * lengths
         outputs = torch.cat([outputs[0, :, :self.hidden_size // 2],
                              outputs[lengths - 1, range(num_words), self.hidden_size // 2:]], dim=1)
-        outputs_sentences = torch.split(outputs, batch_sentence_lengths.tolist(), dim=0)
-
-        outputs = torch.cat([torch.cat([outputs_sentence,
-                                       torch.zeros(padded_length - outputs_sentence.size(0), self.hidden_size,
-                                                   device=const.DEVICE)]).view(padded_length, 1, self.hidden_size)
-                             for outputs_sentence in outputs_sentences], dim=1)
+        outputs = outputs.view(-1, padded_length, self.hidden_size).transpose(0, 1)
         return outputs

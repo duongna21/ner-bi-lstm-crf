@@ -1,38 +1,30 @@
-from gensim.models.fasttext import FastText
+from fasttext import FastText
 import json
 from pyvi.ViTokenizer import ViTokenizer
 import re
-import pickle
 
 
-def split_into_sentences(fn):
-    with open('data/sentences.txt', mode='w', encoding='utf8') as fw:
+def read_documents(fn):
+    with open('data/content_documents.txt', mode='w', encoding='utf8') as fw:
         with open(fn, mode='r', encoding='utf8') as fr:
             for line in fr:
                 obj = json.loads(line)
-                documents = [obj['title'],
-                             obj['description'],
-                             *obj['content'],
-                             *obj.get('comments', [])]
+                documents = obj['content']
 
-                documents = [document for document in documents if document]
+                documents = [tokenize(document) for document in documents if document]
 
                 for document in documents:
-                    sentences = tokenize(document)
-
-                    for sentence in sentences:
-                        if len(sentence) > 0:
-                            fw.write(' '.join(sentence))
-                            fw.write('\n')
+                    fw.write(document)
+                    fw.write('\n')
 
             fr.close()
         fw.close()
 
 
 def tokenize(s):
+    s = re.sub(r'\d+([.,]\d+)?', '__NUM__', s.lower())
     tokenized = ViTokenizer.tokenize(s)
-    sentences = re.split(r'\s+[.?!]+\s+', tokenized)
-    return [re.findall(r'[^\W\d]+', sentence) for sentence in sentences]
+    return tokenized
 
 
 def load_sentences(fn, max_sentences=None):
@@ -49,26 +41,10 @@ def load_sentences(fn, max_sentences=None):
 
 
 def train_embedding(fn):
-    sentences = load_sentences(fn, 5000000)
-    model = FastText(size=100)
-    model.build_vocab(sentences=sentences)
-    model.train(sentences=sentences, total_examples=len(sentences), epochs=10)
-    model.save('data/pretrained_embedding/pretrained_embedding_5M.vec')
-    with open('data/pretrained_embedding/pretrained_embedding_fasttext_5M.pkl', mode='wb') as f:
-        pickle.dump(model, f)
-        f.close()
-
-
-def load_model(fn):
-    model = FastText.load('data/pretrained_embedding/pretrained_embedding.vec')
-    return model
+    model = FastText.train_unsupervised(fn, model='skipgram', dim=300, maxn=0)
+    model.save_model('data/pretrained_embedding/fasttext_pretrained_embeddings_300.bin')
 
 
 if __name__ == '__main__':
-    # split_into_sentences('data/vnexpress_450k.jsonl')
-    train_embedding('data/sentences/sentences.txt')
-
-    # sentences = load_sentences('data/sentences.txt', 1000000)
-    # with open('sentences_1M.pkl', mode='wb') as f:
-    #     pickle.dump(sentences, f)
-    #     f.close()
+    # read_documents('data/vnexpress_450k.jsonl')
+    train_embedding('data/fixed_documents.txt')

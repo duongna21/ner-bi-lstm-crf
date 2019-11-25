@@ -1,12 +1,11 @@
 import torch
-from torch.utils.data import Dataset as TorchDataset
 import itertools
 
 import utils
 import const
 
 
-class TempDataset:
+class Dataset:
     def __init__(self,
                  sentences,
                  word_padding_idx,
@@ -25,7 +24,7 @@ class TempDataset:
         return len(self.sentences)
 
 
-class Dataset(TorchDataset):
+class DataLoader:
     def __init__(self, dataset, batch_size):
         self.dataset = dataset
         self.batch_size = batch_size
@@ -59,10 +58,14 @@ class Dataset(TorchDataset):
         batch_sentence_tag_indexes = utils.zero_padding([sentence.tag_indexes for sentence in sentences],
                                                         fill_value=tag_padding_idx)
         batch_lengths = [sentence.length for sentence in sentences]
-        batch_sentence_word_character_indexes = utils.zero_padding(itertools.chain.from_iterable(
-            [sentence.character_indexes for sentence in sentences]
-        ), fill_value=character_padding_idx)
-        batch_word_lengths = [len(characters) for sentence in sentences for characters in sentence.character_indexes]
+        padded_length = max(batch_lengths)
+        batch_sentence_word_character_indexes = list(itertools.chain.from_iterable(
+            [[*sentence.character_indexes,
+              *[[character_padding_idx]] * (padded_length - len(sentence.character_indexes))] for sentence in sentences]
+        ))
+        batch_word_lengths = [len(characters) for characters in batch_sentence_word_character_indexes]
+        batch_sentence_word_character_indexes = utils.zero_padding(batch_sentence_word_character_indexes,
+                                                                   fill_value=character_padding_idx)
 
         return ((torch.tensor(batch_sentence_word_indexes, dtype=torch.long, device=const.DEVICE),
                 torch.tensor(batch_sentence_pos_indexes, dtype=torch.long, device=const.DEVICE),

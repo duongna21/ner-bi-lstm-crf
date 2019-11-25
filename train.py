@@ -2,7 +2,6 @@ import torch
 import torch.optim as optim
 import os
 from tqdm import tqdm
-from torch.utils.data import DataLoader
 
 import utils
 import vocab
@@ -19,8 +18,21 @@ def adjust_learning_rate(optimizer, learning_rate, epoch, learning_rate_decay):
         param_group['lr'] = lr
 
 
-def train(model, optimizer, train_dl, dev_dl, test_dl, epochs, start_epoch, all_losses, eval_losses, save_every,
-          save_dir):
+def train(
+        model,
+        optimizer,
+        train_dl,
+        dev_dl,
+        test_dl,
+        epochs,
+        start_epoch,
+        all_losses,
+        eval_losses,
+        test_scores,
+        best_test_score,
+        save_every,
+        save_dir
+):
     for epoch in range(start_epoch, epochs + 1):
         adjust_learning_rate(optimizer, learning_rate, epoch, learning_rate_decay)
         model.train()
@@ -33,13 +45,13 @@ def train(model, optimizer, train_dl, dev_dl, test_dl, epochs, start_epoch, all_
              batch_sentence_lengths,
              batch_word_lengths) in tqdm(train_dl):
             optimizer.zero_grad()
-            loss = - model(batch_sentence_word_indexes.squeeze(dim=0),
-                           batch_sentence_pos_indexes.squeeze(dim=0),
-                           batch_sentence_chunk_indexes.squeeze(dim=0),
-                           batch_sentence_word_character_indexes.squeeze(dim=0),
-                           batch_sentence_lengths.squeeze(dim=0),
-                           batch_word_lengths.squeeze(dim=0),
-                           batch_sentence_tag_indexes.squeeze(dim=0))
+            loss = - model(batch_sentence_word_indexes,
+                           batch_sentence_pos_indexes,
+                           batch_sentence_chunk_indexes,
+                           batch_sentence_word_character_indexes,
+                           batch_sentence_lengths,
+                           batch_word_lengths,
+                           batch_sentence_tag_indexes)
             loss.backward()
             optimizer.step()
             current_loss += loss.item()
@@ -48,12 +60,25 @@ def train(model, optimizer, train_dl, dev_dl, test_dl, epochs, start_epoch, all_
         all_losses.append(epoch_loss)
         eval_losses.append(evaluator.evaluate_loss(model, dev_dl))
         test_precision, test_recall, test_f1_score = evaluator.evaluate_test(model, test_dl)
+        test_scores.append(test_f1_score)
         print(f"Epoch {epoch}: \tloss = {epoch_loss}"
               f"\neval_loss = {eval_losses[-1]}"
               f"\ntest_precision = {test_precision}"
               f"\ntest_recall = {test_recall}"
               f"\ntest_f1_score = {test_f1_score}")
         print('-----------------------------------------------')
+
+        if test_f1_score > best_test_score:
+            best_test_score = test_f1_score
+            directory = os.path.join(save_dir, f'{character_hidden_dim}_{context_hidden_dim}_{crf_loss_reduction}')
+            torch.save({
+                'epoch': epoch,
+                'model': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'all_losses': all_losses,
+                'eval_losses': eval_losses,
+                'test_scores': test_scores,
+            }, os.path.join(directory, "best_model.tar"))
 
         if epoch % save_every == 0:
             directory = os.path.join(save_dir, f'{character_hidden_dim}_{context_hidden_dim}_{crf_loss_reduction}')
@@ -65,7 +90,8 @@ def train(model, optimizer, train_dl, dev_dl, test_dl, epochs, start_epoch, all_
                 'model': model.state_dict(),
                 'optimizer': optimizer.state_dict(),
                 'all_losses': all_losses,
-                'eval_losses': eval_losses
+                'eval_losses': eval_losses,
+                'test_scores': test_scores,
             }, os.path.join(directory, f"{epoch}_checkpoint.tar"))
 
         if is_stopping(eval_losses):
@@ -83,6 +109,8 @@ def load_model(model_fn, voc, character_embedding_dim, character_hidden_dim, con
     epoch = 0
     all_losses = []
     eval_losses = []
+    test_scores = []
+    best_test_score = 0
 
     model = BiLSTMCrf(vocab=voc,
                       character_embedding_dim=character_embedding_dim,
@@ -100,6 +128,8 @@ def load_model(model_fn, voc, character_embedding_dim, character_hidden_dim, con
         optimizer_sd = checkpoint['optimizer']
         all_losses = checkpoint['all_losses']
         eval_losses = checkpoint['eval_losses']
+        test_scores = checkpoint['test_scores']
+        best_test_score = max(test_scores)
 
         model.load_state_dict(model_sd)
         optimizer.load_state_dict(optimizer_sd)
@@ -110,12 +140,12 @@ def load_model(model_fn, voc, character_embedding_dim, character_hidden_dim, con
             if type(v) is torch.Tensor:
                 state[k] = v.to(const.DEVICE)
 
-    return model, optimizer, epoch + 1, all_losses, eval_losses
+    return model, optimizer, epoch + 1, all_losses, eval_losses, test_scores, best_test_score
 
 
 if __name__ == '__main__':
     print('Loading vocab...')
-    voc = vocab.Vocab('data/pretrained_embedding/fasttext_pretrained_embedding_dim300.bin')
+    voc = vocab.Vocab('data/pretrained_embedding/wiki.vi.bin')
     batch_size = 8
 
     print('Loading data ...')
@@ -123,48 +153,61 @@ if __name__ == '__main__':
     dev_sentences = [Sentence(sentence, voc) for sentence in utils.read_data('data/data/dev.txt')]
     test_sentences = [Sentence(sentence, voc) for sentence in utils.read_data('data/data/test.txt')]
 
-    train_ds = dataset.TempDataset(train_sentences, word_padding_idx=voc.padding_index,
-                                   pos_padding_idx=const.POS_PADDING_IDX,
-                                   chunk_padding_idx=const.CHUNK_PADDING_IDX,
-                                   character_padding_idx=const.CHARACTER2INDEX['<PAD>'],
-                                   tag_padding_idx=const.CHUNK_PADDING_IDX)
-    dev_ds = dataset.TempDataset(dev_sentences, word_padding_idx=voc.padding_index,
-                                 pos_padding_idx=const.POS_PADDING_IDX,
-                                 chunk_padding_idx=const.CHUNK_PADDING_IDX,
-                                 character_padding_idx=const.CHARACTER2INDEX['<PAD>'],
-                                 tag_padding_idx=const.CHUNK_PADDING_IDX)
-    test_ds = dataset.TempDataset(test_sentences, word_padding_idx=voc.padding_index,
-                                  pos_padding_idx=const.POS_PADDING_IDX,
-                                  chunk_padding_idx=const.CHUNK_PADDING_IDX,
-                                  character_padding_idx=const.CHARACTER2INDEX['<PAD>'],
-                                  tag_padding_idx=const.CHUNK_PADDING_IDX)
+    train_ds = dataset.Dataset(train_sentences, word_padding_idx=voc.padding_index,
+                               pos_padding_idx=const.POS_PADDING_IDX,
+                               chunk_padding_idx=const.CHUNK_PADDING_IDX,
+                               character_padding_idx=const.CHARACTER2INDEX['<PAD>'],
+                               tag_padding_idx=const.CHUNK_PADDING_IDX)
+    dev_ds = dataset.Dataset(dev_sentences, word_padding_idx=voc.padding_index,
+                             pos_padding_idx=const.POS_PADDING_IDX,
+                             chunk_padding_idx=const.CHUNK_PADDING_IDX,
+                             character_padding_idx=const.CHARACTER2INDEX['<PAD>'],
+                             tag_padding_idx=const.CHUNK_PADDING_IDX)
+    test_ds = dataset.Dataset(test_sentences, word_padding_idx=voc.padding_index,
+                              pos_padding_idx=const.POS_PADDING_IDX,
+                              chunk_padding_idx=const.CHUNK_PADDING_IDX,
+                              character_padding_idx=const.CHARACTER2INDEX['<PAD>'],
+                              tag_padding_idx=const.CHUNK_PADDING_IDX)
 
-    train_dl = DataLoader(dataset.Dataset(train_ds, batch_size=batch_size), batch_size=1)
-    dev_dl = DataLoader(dataset.Dataset(dev_ds, batch_size=batch_size), batch_size=1)
-    test_dl = DataLoader(dataset.Dataset(test_ds, batch_size=batch_size), batch_size=1)
+    train_dl = dataset.DataLoader(train_ds, batch_size=batch_size)
+    dev_dl = dataset.DataLoader(dev_ds, batch_size=batch_size)
+    test_dl = dataset.DataLoader(test_ds, batch_size=batch_size)
 
     word_embedding_dim = 300
     character_embedding_dim = 100
-    character_hidden_dim = 100
-    context_hidden_dim = 150
+    character_hidden_dim = 100 * 2
+    context_hidden_dim = 150 * 2
     learning_rate = 0.0035
-    learning_rate_decay = 0.005
+    learning_rate_decay = 0.06
     momentum = 0.9
     dropout = 0.35
     epochs = 30
     crf_loss_reduction = 'token_mean'
 
-    # model_fn = 'data/model/100_150_mean/11_checkpoint.tar'
+    # model_fn = 'data/model/200_300_token_mean/3_checkpoint.tar'
     model_fn = None
 
-    model, optimizer, epoch, all_losses, eval_losses = load_model(model_fn,
-                                                                  voc,
-                                                                  character_embedding_dim,
-                                                                  character_hidden_dim,
-                                                                  context_hidden_dim,
-                                                                  dropout,
-                                                                  crf_loss_reduction)
+    model, optimizer, epoch, all_losses, eval_losses, test_scores, best_test_score = load_model(model_fn,
+                                                                                                voc,
+                                                                                                character_embedding_dim,
+                                                                                                character_hidden_dim,
+                                                                                                context_hidden_dim,
+                                                                                                dropout,
+                                                                                                crf_loss_reduction)
 
     print('Training...')
-    train(model, optimizer, train_dl, dev_dl, test_dl, epochs, epoch, all_losses, eval_losses, save_every=1,
-          save_dir='data/model')
+    train(
+        model,
+        optimizer,
+        train_dl,
+        dev_dl,
+        test_dl,
+        epochs,
+        epoch,
+        all_losses,
+        eval_losses,
+        test_scores,
+        best_test_score,
+        save_every=5,
+        save_dir='data/model'
+    )

@@ -15,13 +15,13 @@ def evaluate_loss(model, dev_dl):
              batch_sentence_tag_indexes,
              batch_sentence_lengths,
              batch_word_lengths) in dev_dl:
-            loss = - model(batch_sentence_word_indexes.squeeze(dim=0),
-                           batch_sentence_pos_indexes.squeeze(dim=0),
-                           batch_sentence_chunk_indexes.squeeze(dim=0),
-                           batch_sentence_word_character_indexes.squeeze(dim=0),
-                           batch_sentence_lengths.squeeze(dim=0),
-                           batch_word_lengths.squeeze(dim=0),
-                           batch_sentence_tag_indexes.squeeze(dim=0))
+            loss = - model(batch_sentence_word_indexes,
+                           batch_sentence_pos_indexes,
+                           batch_sentence_chunk_indexes,
+                           batch_sentence_word_character_indexes,
+                           batch_sentence_lengths,
+                           batch_word_lengths,
+                           batch_sentence_tag_indexes)
             current_loss += loss.item()
 
         return current_loss / len(dev_dl)
@@ -40,13 +40,6 @@ def evaluate_test(model, test_dl):
              batch_sentence_tag_indexes,
              batch_sentence_lengths,
              batch_word_lengths) in test_dl:
-            batch_sentence_word_indexes = batch_sentence_word_indexes.squeeze(dim=0)
-            batch_sentence_pos_indexes = batch_sentence_pos_indexes.squeeze(dim=0)
-            batch_sentence_chunk_indexes = batch_sentence_chunk_indexes.squeeze(dim=0)
-            batch_sentence_word_character_indexes = batch_sentence_word_character_indexes.squeeze(dim=0)
-            batch_sentence_lengths = batch_sentence_lengths.squeeze(dim=0)
-            batch_word_lengths = batch_word_lengths.squeeze(dim=0)
-            batch_sentence_tag_indexes = batch_sentence_tag_indexes.squeeze(dim=0)
             pred_seqs = model(batch_sentence_word_indexes,
                               batch_sentence_pos_indexes,
                               batch_sentence_chunk_indexes,
