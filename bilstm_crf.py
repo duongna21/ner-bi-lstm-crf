@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torchcrf import CRF
+import numpy as np
 
 from character_lstm import CharacterLSTM
 import utils
@@ -30,7 +31,8 @@ class BiLSTMCrf(nn.Module):
             self.embedding_dim + character_hidden_dim + const.NUM_POS_TAGS + const.NUM_CHUNK_TAGS,
             context_hidden_dim // 2,
             bidirectional=True)
-        self.hidden2tag = nn.Linear(self.context_hidden_dim, self.num_tags)
+        # self.hidden2tag = nn.Linear(self.context_hidden_dim, self.num_tags)
+        self.hidden2tag = self.get_linear_layer(self.context_hidden_dim, self.num_tags)
         self.dropout = nn.Dropout(dropout)
         self.crf = CRF(num_tags=self.num_tags)
 
@@ -98,3 +100,16 @@ class BiLSTMCrf(nn.Module):
         tensor = torch.zeros(1, size, dtype=torch.float, device=const.DEVICE)
         tensor[0][position] = 1
         return tensor
+
+    @staticmethod
+    def get_linear_layer(input_dim, output_dim):
+        linear_layer = nn.Linear(input_dim, output_dim, bias=True)
+        mean = 0.0  # std_dev = np.sqrt(variance)
+        std_dev = np.sqrt(2 / (output_dim + input_dim))  # np.sqrt(1 / m) # np.sqrt(1 / n)
+        weight = np.random.normal(mean, std_dev, size=(output_dim, input_dim)).astype(np.float32)
+        std_dev = np.sqrt(1 / output_dim)  # np.sqrt(2 / (m + 1))
+        bt = np.random.normal(mean, std_dev, size=output_dim).astype(np.float32)
+
+        linear_layer.weight.data = torch.tensor(weight, requires_grad=True)
+        linear_layer.bias.data = torch.tensor(bt, requires_grad=True)
+        return linear_layer

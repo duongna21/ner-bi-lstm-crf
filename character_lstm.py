@@ -14,8 +14,8 @@ class CharacterLSTM(nn.Module):
         self.unk_idx = const.CHARACTER2INDEX['<UNK>']
         self.padding_idx = const.CHARACTER2INDEX['<PAD>']
 
-        self.embeddings = nn.Embedding(num_embeddings=len(const.CHARACTER2INDEX), embedding_dim=embedding_dim,
-                                       padding_idx=self.padding_idx)
+        self.embeddings = self.embedding(num_embeddings=len(const.CHARACTER2INDEX), embedding_dim=embedding_dim,
+                                         padding_idx=self.padding_idx)
         self.lstm = nn.LSTM(embedding_dim, hidden_size=hidden_dim // 2, num_layers=1, bidirectional=True)
 
     def forward_seq(self, seq, lengths, padded_length):
@@ -38,6 +38,19 @@ class CharacterLSTM(nn.Module):
                              torch.zeros(padded_length - seq_length, self.hidden_size, device=const.DEVICE)],
                             dim=0).view(padded_length, 1, self.hidden_size)
         return outputs
+
+    @staticmethod
+    def trunc_normal_(x: torch.Tensor, mean: float = 0., std: float = 1.) -> torch.Tensor:
+        """Truncated normal initialization."""
+        # From https://discuss.pytorch.org/t/implementing-truncated-normal-initializer/4778/12
+        return x.normal_().fmod_(2).mul_(std).add_(mean)
+
+    def embedding(self, num_embeddings: int, embedding_dim: int, padding_idx=0) -> nn.Module:
+        """Create an embedding layer."""
+        emb = nn.Embedding(num_embeddings, embedding_dim, padding_idx=padding_idx)
+        # See https://arxiv.org/abs/1711.09160
+        with torch.no_grad(): self.trunc_normal_(emb.weight, std=0.01)
+        return emb
 
     def forward(self, batch_character_indexes_seq, batch_word_lengths, batch_sentence_lengths, padded_length):
         # outputs = torch.cat([self.forward_seq(seq, lengths, padded_length) for seq, lengths in batch_seq], dim=1)
