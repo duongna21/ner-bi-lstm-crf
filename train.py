@@ -26,7 +26,7 @@ def parse():
     parser.add_argument('-de', '--devpath', help='Development file location', default='data/data/dev.txt')
     parser.add_argument('-pr', '--pretrained_path', default='data/pretrained_embedding/fasttext_pretrained_embeddings_300.bin', help='Pretrained word embedding used in training')
     parser.add_argument('-wb', '--word_embedding_dim', type=int, default=300, help='Number of word embedding dimensions')
-    parser.add_argument('-cb', '--char_embedding_dim', type=int, default=100, help='Number of character embedding dimensions')
+    parser.add_argument('-cb', '--character_embedding_dim', type=int, default=100, help='Number of character embedding dimensions')
     parser.add_argument('-b', '--batch_size', type=int, default=8, help='Batch size')
     parser.add_argument('-wi', '--context_hidden_dim', type=int, default=150 * 2, help='Context hidden size')
     parser.add_argument('-ci', '--character_hidden_dim', type=int, default=100 * 2, help='Character hidden size')
@@ -36,6 +36,7 @@ def parse():
     parser.add_argument('-cp', '--checkpoint_dir', default='data/model', help='Checkpoint directory')
     parser.add_argument('-ep', '--epochs', type=int, default=25, help='Number of epochs')
     parser.add_argument('-dc', '--learning_rate_decay', default=0.06, type=float, help='Decay rate in each epoch')
+    parser.add_argument('-upc', '--using_pos_chunk', action='store_true', help='Using pos chunk option')
 
     args = parser.parse_args()
     return args
@@ -127,7 +128,7 @@ def is_stopping(eval_losses):
 
 
 def load_model(model_fn, voc, character_embedding_dim, character_hidden_dim, context_hidden_dim, dropout,
-               crf_loss_reduction):
+               crf_loss_reduction, lr, using_pos_chunk):
     print('Building model and optimizer...')
     epoch = 0
     all_losses = []
@@ -139,10 +140,11 @@ def load_model(model_fn, voc, character_embedding_dim, character_hidden_dim, con
                       character_embedding_dim=character_embedding_dim,
                       character_hidden_dim=character_hidden_dim,
                       context_hidden_dim=context_hidden_dim,
+                      using_pos_chunk=using_pos_chunk,
                       dropout=dropout,
                       crf_loss_reduction=crf_loss_reduction)
 
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    optimizer = optim.Adam(model.parameters(), lr=lr)
 
     if model_fn is not None:
         checkpoint = torch.load(model_fn)
@@ -168,6 +170,7 @@ def load_model(model_fn, voc, character_embedding_dim, character_hidden_dim, con
 
 if __name__ == '__main__':
     args = parse()
+    print(args)
     print('Loading vocab...')
     voc = vocab.Vocab(args.pretrained_path, freeze=True)
 
@@ -209,7 +212,9 @@ if __name__ == '__main__':
                                                                                                 args.character_hidden_dim,
                                                                                                 args.context_hidden_dim,
                                                                                                 args.dropout,
-                                                                                                crf_loss_reduction)
+                                                                                                crf_loss_reduction,
+                                                                                                args.lr,
+                                                                                                args.using_pos_chunk)
 
     print('Training...')
     train(

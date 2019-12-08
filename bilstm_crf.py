@@ -14,6 +14,7 @@ class BiLSTMCrf(nn.Module):
                  character_embedding_dim,
                  character_hidden_dim,
                  context_hidden_dim,
+                 using_pos_chunk=True,
                  dropout=0.35,
                  crf_loss_reduction='sum'):
         super(BiLSTMCrf, self).__init__()
@@ -22,13 +23,17 @@ class BiLSTMCrf(nn.Module):
         self.embedding_dim = vocab.embedding_dim
         self.num_tags = len(const.TAG_LIST) - 1
         self.context_hidden_dim = context_hidden_dim
+        self.using_pos_chunk = using_pos_chunk
 
         self.embeddings = vocab.embeddings
-        self.pos_embeddings = self.init_pos_embedding()
-        self.chunk_embeddings = self.init_chunk_embedding()
+        if using_pos_chunk:
+            self.pos_embeddings = self.init_pos_embedding()
+            self.chunk_embeddings = self.init_chunk_embedding()
         self.character_lstm = CharacterLSTM(character_embedding_dim, character_hidden_dim)
         self.context_lstm = nn.LSTM(
-            self.embedding_dim + character_hidden_dim + const.NUM_POS_TAGS + const.NUM_CHUNK_TAGS,
+            self.embedding_dim + character_hidden_dim + (
+                (const.NUM_POS_TAGS + const.NUM_CHUNK_TAGS) if using_pos_chunk else 0
+            ),
             context_hidden_dim // 2,
             bidirectional=True)
         # self.hidden2tag = nn.Linear(self.context_hidden_dim, self.num_tags)
@@ -56,14 +61,18 @@ class BiLSTMCrf(nn.Module):
                                                          batch_sentence_lengths,
                                                          padded_sentence_length)
 
-        # Pos embeddings
-        pos_embs = self.pos_embeddings(batch_padded_pos_seq)
+        if self.using_pos_chunk:
+            # Pos embeddings
+            pos_embs = self.pos_embeddings(batch_padded_pos_seq)
 
-        # Chunk embeddings
-        chunk_embs = self.chunk_embeddings(batch_padded_chunk_seq)
+            # Chunk embeddings
+            chunk_embs = self.chunk_embeddings(batch_padded_chunk_seq)
 
-        # Combine word embs, pos embs, chunk embs, character level
-        combined = torch.cat([word_embs, padded_batch_character_seq, pos_embs, chunk_embs], dim=2)
+            # Combine word embs, pos embs, chunk embs, character level
+            combined = torch.cat([word_embs, padded_batch_character_seq, pos_embs, chunk_embs], dim=2)
+        else:
+            # Combine word embs, character level
+            combined = torch.cat([word_embs, padded_batch_character_seq], dim=2)
         combined = self.dropout(combined)
 
         packed = nn.utils.rnn.pack_padded_sequence(combined, lengths=batch_sentence_lengths, enforce_sorted=False)
