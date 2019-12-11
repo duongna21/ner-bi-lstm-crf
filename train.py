@@ -203,8 +203,8 @@ if __name__ == '__main__':
     # momentum = 0.9
     crf_loss_reduction = 'token_mean'
 
-    # model_fn = 'data/model/200_300_token_mean/3_checkpoint.tar'
-    model_fn = None
+    model_fn = 'data/model/200_300_token_mean/best_model.tar'
+    # model_fn = None
 
     model, optimizer, epoch, all_losses, eval_losses, test_scores, best_test_score = load_model(model_fn,
                                                                                                 voc,
@@ -216,19 +216,21 @@ if __name__ == '__main__':
                                                                                                 args.lr,
                                                                                                 args.using_pos_chunk)
 
-    print('Training...')
-    train(
-        model,
-        optimizer,
-        train_dl,
-        dev_dl,
-        test_dl,
-        args.epochs,
-        epoch,
-        all_losses,
-        eval_losses,
-        test_scores,
-        best_test_score,
-        save_every=5,
-        save_dir=args.checkpoint_dir
-    )
+    # print('Training...')
+    # train(
+    #     model,
+    #     optimizer,
+    #     train_dl,
+    #     dev_dl,
+    #     test_dl,
+    #     args.epochs,
+    #     epoch,
+    #     all_losses,
+    #     eval_losses,
+    #     test_scores,
+    #     best_test_score,
+    #     save_every=5,
+    #     save_dir=args.checkpoint_dir
+    # )
+
+    evaluator.evaluate_test(model, test_dl, 'output/output_no_pos_chunk.txt')

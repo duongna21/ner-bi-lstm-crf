@@ -1,6 +1,8 @@
 import itertools
 import matplotlib.pyplot as plt
 import random
+from pyvi.ViTokenizer import ViTokenizer
+import re
 
 random.seed(1)
 
@@ -34,6 +36,16 @@ def read_sentences_tags(fn):
 
 def zero_padding(l, fill_value=0):
     return list(itertools.zip_longest(*l, fillvalue=fill_value))
+
+
+def get_sentences(paragraph):
+    tokenized_sentences = [ViTokenizer.tokenize(sentence) for sentence in
+                           re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=[.?!])\s+', paragraph)]
+    sentences = [[
+        (token, '<PAD_POS>', '<PAD_CHUNK>', '<PAD_TAG>')
+        for token in re.sub(r'(?<=\d\s[/-])\s|(?=\s[/-]\s\d)\s', '', sentence).split()
+    ] for sentence in tokenized_sentences]
+    return sentences
 
 
 def plot_losses(losses):
