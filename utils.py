@@ -2,6 +2,7 @@ import itertools
 import matplotlib.pyplot as plt
 import random
 from pyvi.ViTokenizer import ViTokenizer
+from underthesea import word_tokenize
 import re
 
 random.seed(1)
@@ -39,7 +40,7 @@ def zero_padding(l, fill_value=0):
 
 
 def get_sentences(paragraph):
-    tokenized_sentences = [ViTokenizer.tokenize(sentence) for sentence in
+    tokenized_sentences = [word_tokenize(sentence, format='text') for sentence in
                            re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=[.?!])\s+', paragraph)]
     sentences = [[
         (token, '<PAD_POS>', '<PAD_CHUNK>', '<PAD_TAG>')

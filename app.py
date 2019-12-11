@@ -78,7 +78,9 @@ def print_result(sentences, tags):
 
 
 if __name__ == '__main__':
+    print('loading vocab......')
     voc = vocab.Vocab(args['pretrained_path'])
+    print('loading model.......')
     model = load_model(
         model_fn=args['checkpoint_fn'],
         voc=voc,
@@ -92,11 +94,14 @@ if __name__ == '__main__':
     model = model.to(device)
     model.eval()
 
+    print('program is running.....')
     is_stop = False
     while not is_stop:
         paragraph = input('Enter a paragraph: ')
         if paragraph == 'n' or paragraph == 'N':
             is_stop = True
+        elif paragraph == '':
+            continue
         else:
             text_sentences = utils.get_sentences(paragraph)
             sentences = [Sentence(s, word_vocab=voc) for s in text_sentences]
